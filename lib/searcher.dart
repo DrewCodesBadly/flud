@@ -1,12 +1,18 @@
 import 'dart:collection';
+import 'dart:ffi';
 import 'dart:io';
 
+import 'package:app_dirs/app_dirs.dart';
+import 'package:ffi/ffi.dart';
+import 'package:flud/main.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:fuzzy/fuzzy.dart';
+import 'package:win32/win32.dart';
 
 class ApplicationInfo {
   final String name;
-  final String executeCmd;
+  final List<String> executeCmd;
   final String? iconPath;
   final String filePath;
 
@@ -54,7 +60,12 @@ class ApplicationListData {
               }
               var exec = findXdgDesktopAttribute(s, 'Exec=')!;
               var iconPath = findXdgDesktopAttribute(s, 'Icon=');
-              apps[name] = ApplicationInfo(name, exec, iconPath, file.path);
+              apps[name] = ApplicationInfo(
+                name,
+                stripExecuteCmd(exec.split(' ')),
+                iconPath,
+                file.path,
+              );
               names.add(name);
             }
           }
@@ -63,8 +74,34 @@ class ApplicationListData {
         // TODO: Handle this case.
         throw UnimplementedError();
       case TargetPlatform.windows:
-        // TODO: Handle this case.
-        throw UnimplementedError();
+        var paths = <String>[
+          'C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs',
+          '${Directories().baseDirs.data}\\Microsoft\\Windows\\Start Menu\\Programs',
+        ];
+        for (var programsPath in paths) {
+          var programsDirectory = Directory(programsPath);
+          await for (var file in programsDirectory.list(
+            recursive: true,
+            followLinks: true,
+          )) {
+            if (file is! Directory) {
+              var name = file.path.substring(
+                file.path.lastIndexOf('\\') + 1,
+                file.path.lastIndexOf('.'),
+              );
+              if (!names.contains(name)) {
+                apps[name] = ApplicationInfo(
+                  name,
+                  // Start just... doesn't work... so I'm using explorer.
+                  <String>['explorer', file.path],
+                  file.path,
+                  file.path,
+                );
+                names.add(name);
+              }
+            }
+          }
+        }
     }
 
     fuzzy = Fuzzy(names);

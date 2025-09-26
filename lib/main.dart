@@ -252,6 +252,7 @@ class _MainSearchBarState extends State<MainSearchBar>
                         if (event.character != null &&
                             event.logicalKey != LogicalKeyboardKey.tab &&
                             event.logicalKey != LogicalKeyboardKey.backspace &&
+                            event.logicalKey != LogicalKeyboardKey.escape &&
                             controller.text.isNotEmpty) {
                           return KeyEventResult.skipRemainingHandlers;
                         } else {

@@ -4,6 +4,7 @@ import 'package:flud/shortcut_dialogs.dart';
 import 'package:flud/main.dart';
 import 'package:flud/searcher.dart';
 import 'package:flud/shortcuts_menu.dart';
+import 'package:flud/icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -34,7 +35,11 @@ class CentralPanel extends StatelessWidget {
               onInvoke: (intent) {
                 switch (data.searchState) {
                   case SearchState.searchForApps:
-                    invokeExecuteCmd(data.foundApps[intent.index].executeCmd);
+                    var cmd = data.foundApps[intent.index].executeCmd;
+                    runCommandWrapped(
+                      cmd.first,
+                      cmd.skip(1).toList(growable: false),
+                    );
                     sendCloseApp(context);
                   case SearchState.searchForFiles:
                     requestOpenFile(data.foundFiles[intent.index].path);
@@ -86,10 +91,11 @@ class CentralPanelData extends ChangeNotifier {
     switch (searchState) {
       case SearchState.searchForApps:
         if (foundApps.firstOrNull != null) {
-          invokeExecuteCmd(foundApps.first.executeCmd);
+          var cmd = foundApps.first.executeCmd;
+          print(cmd);
+          runCommandWrapped(cmd.first, cmd.skip(1).toList(growable: false));
           success = true;
         }
-      // Stolen from [here](https://stackoverflow.com/questions/1795111/is-there-a-cross-platform-way-to-open-a-file-browser-in-python)
       case SearchState.searchForFiles:
         var path =
             (text.endsWith('/') || text.endsWith('\\') ? text : null) ??
@@ -184,13 +190,8 @@ void requestOpenFile(String path) {
     case TargetPlatform.macOS:
       Process.run("open", [path]);
     case TargetPlatform.windows:
-      Process.run("start", [path]);
+      Process.run("explorer", [path]);
   }
-}
-
-void invokeExecuteCmd(String executeCmd) {
-  var cmd = stripExecuteCmd(executeCmd.split(' '));
-  runCommandWrapped(cmd.first, cmd.skip(1).toList(growable: false));
 }
 
 void sendCloseApp(BuildContext context) {
@@ -256,46 +257,49 @@ class AppSearchResultsPanel extends StatelessWidget {
       return Row(
         children: [
           getAppIcon(app.iconPath, 64.0),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [Text(app.name), Text(app.filePath)],
-          ),
           Expanded(
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: FloatingActionButton.small(
-                onPressed: () async {
-                  var data = Provider.of<CentralPanelData>(
-                    context,
-                    listen: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(app.name),
+                Text(app.filePath, overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FloatingActionButton.small(
+              onPressed: () async {
+                var data = Provider.of<CentralPanelData>(
+                  context,
+                  listen: false,
+                );
+                var result = await showDialog<String>(
+                  context: context,
+                  builder: (context) {
+                    return AddAppShortcutDialog(app);
+                  },
+                );
+                if (result != null && result.isNotEmpty) {
+                  var fullIconPath = getAppIconPath(app.iconPath);
+                  var node = ShortcutNode(
+                    result.characters.last,
+                    iconPath: fullIconPath,
+                    icon: getAppIconFromPath(fullIconPath, 64.0),
+                    exec: app.executeCmd,
+                    level: result.length,
                   );
-                  var result = await showDialog<String>(
-                    context: context,
-                    builder: (context) {
-                      return AddAppShortcutDialog(app);
-                    },
-                  );
-                  if (result != null && result.isNotEmpty) {
-                    var fullIconPath = getAppIconPath(app.iconPath);
-                    var node = ShortcutNode(
-                      result.characters.last,
-                      iconPath: fullIconPath,
-                      icon: getAppIconFromPath(fullIconPath, 64.0),
-                      exec: stripExecuteCmd(app.executeCmd.split(' ')),
-                      level: result.length,
-                    );
-                    try {
-                      data.addNewShortcut(result, node);
-                    } catch (e, _) {
-                      if (context.mounted) {
-                        sendErrorSnackBar(e, context);
-                      }
+                  try {
+                    data.addNewShortcut(result, node);
+                  } catch (e, _) {
+                    if (context.mounted) {
+                      sendErrorSnackBar(e, context);
                     }
-                    saveShortcuts(data.startNode.children);
                   }
-                },
-                child: Icon(Icons.star_border),
-              ),
+                  saveShortcuts(data.startNode.children);
+                }
+              },
+              child: Icon(Icons.star_border),
             ),
           ),
         ],
@@ -395,8 +399,7 @@ String? getAppIconPath(String? iconPath) {
       // TODO: Handle this case.
       return null;
     case TargetPlatform.windows:
-      // TODO: Handle this case.
-      return null;
+      return iconPath;
   }
 }
 
@@ -405,13 +408,30 @@ Widget getAppIcon(String? iconPath, double size) {
 }
 
 Widget getAppIconFromPath(String? fullPath, double size) {
-  if (fullPath != null) {
-    if (fullPath.endsWith('svg')) {
-      return SvgPicture.file(File(fullPath), width: size, height: size);
-    } else {
-      return Image.file(File(fullPath), width: size, height: size);
-    }
-  } else {
-    return Icon(Icons.open_in_new, size: size);
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.android:
+      // TODO: Handle this case.
+      throw UnimplementedError();
+    case TargetPlatform.fuchsia:
+      // TODO: Handle this case.
+      throw UnimplementedError();
+    case TargetPlatform.iOS:
+      // TODO: Handle this case.
+      throw UnimplementedError();
+    case TargetPlatform.linux:
+      if (fullPath != null) {
+        if (fullPath.endsWith('svg')) {
+          return SvgPicture.file(File(fullPath), width: size, height: size);
+        } else {
+          return Image.file(File(fullPath), width: size, height: size);
+        }
+      } else {
+        return Icon(Icons.open_in_new, size: size);
+      }
+    case TargetPlatform.macOS:
+      // TODO: Handle this case.
+      throw UnimplementedError();
+    case TargetPlatform.windows:
+      throw UnimplementedError();
   }
 }

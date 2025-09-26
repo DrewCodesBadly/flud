@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:app_dirs/app_dirs.dart';
 import 'package:flud/central_panel.dart';
 import 'package:flud/main.dart';
+import 'package:flud/icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';

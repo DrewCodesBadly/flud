@@ -145,13 +145,23 @@ bool Win32Window::Create(const std::wstring &title,
   const POINT target_point = {static_cast<LONG>(origin.x),
                               static_cast<LONG>(origin.y)};
   HMONITOR monitor = MonitorFromPoint(target_point, MONITOR_DEFAULTTONEAREST);
-  UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
-  double scale_factor = dpi / 96.0;
+  // Unneeded in new code
+  // UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
+  // double scale_factor = dpi / 96.0;
+
+  MONITORINFO monitor_info;
+  monitor_info.cbSize = sizeof(MONITORINFO);
+  GetMonitorInfo(monitor, &monitor_info);
 
   HWND window = CreateWindow(
       window_class, title.c_str(), WS_BORDER,
-      Scale(origin.x, scale_factor), Scale(origin.y, scale_factor),
-      Scale(size.width, scale_factor), Scale(size.height, scale_factor),
+      // Flutter's original code
+      // Scale(origin.x, scale_factor), Scale(origin.y, scale_factor),
+      // Scale(size.width, scale_factor), Scale(size.height, scale_factor),
+      // Editied to fill the entire working area
+      monitor_info.rcWork.left, monitor_info.rcWork.top,
+      monitor_info.rcWork.right - monitor_info.rcWork.left,
+      monitor_info.rcWork.bottom - monitor_info.rcWork.top,
       nullptr, nullptr, GetModuleHandle(nullptr), this);
   SetWindowLong(window, GWL_STYLE, 0);
   MARGINS margins = {-1};
@@ -169,7 +179,7 @@ bool Win32Window::Create(const std::wstring &title,
 
 bool Win32Window::Show()
 {
-  return ShowWindow(window_handle_, SW_MAXIMIZE);
+  return ShowWindow(window_handle_, SW_SHOWNORMAL) && BringWindowToTop(window_handle_);
 }
 
 // static

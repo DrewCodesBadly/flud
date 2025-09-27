@@ -7,7 +7,6 @@ import 'package:flud/shortcuts_menu.dart';
 import 'package:flud/icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 
 enum SearchState { searchForApps, searchForFiles, noSearch }
@@ -36,6 +35,7 @@ class CentralPanel extends StatelessWidget {
                 switch (data.searchState) {
                   case SearchState.searchForApps:
                     var cmd = data.foundApps[intent.index].executeCmd;
+                    print('About to execute command: $cmd');
                     runCommandWrapped(
                       cmd.first,
                       cmd.skip(1).toList(growable: false),

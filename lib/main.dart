@@ -192,7 +192,7 @@ class _MainSearchBarState extends State<MainSearchBar>
             var first = data.foundFiles.firstOrNull;
             if (first != null) {
               if (first.type == FileType.directory) {
-                controller.text = '${first.path}/';
+                controller.text = '${first.path}${Platform.pathSeparator}';
               } else {
                 controller.text = first.path;
               }

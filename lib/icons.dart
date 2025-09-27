@@ -214,26 +214,15 @@ Future<Image?> getWindowsShortcutIcon(String path) async {
       throw Error();
     }
 
-    // For whatever reason the pixels are return correctly -
-    // but in the reverse of the order dart expects.
+    // For whatever reason the pixels are returned correctly -
+    // but upside down.
     var originalList = bits.asTypedList(
       bitmapInfoPtr.ref.bmiHeader.biSizeImage,
     );
-    // var newList = <int>[];
-    // for (var i = 0; i < originalList.length; i += 4) {
-    //   var next = originalList[i];
-    //   next |= originalList[i + 1] << 8;
-    //   next |= originalList[i + 2] << 16;
-    //   next |= originalList[i + 3] << 24;
-    //   newList.add(next);
-    // }
-    var len = originalList.length;
-    var newList = List<int>.from(originalList);
-    for (var i = 0; i < len; i += 4) {
-      newList[i] = originalList[len - i - 4];
-      newList[i + 1] = originalList[len - i - 3];
-      newList[i + 2] = originalList[len - i - 2];
-      newList[i + 3] = originalList[len - i - 1];
+    var stride = bitmapInfoPtr.ref.bmiHeader.biWidth * 4;
+    var newList = <int>[];
+    for (var i = originalList.length - stride; i >= 0; i -= stride) {
+      newList.addAll(originalList.getRange(i, i + stride));
     }
 
     var codec =
@@ -249,7 +238,7 @@ Future<Image?> getWindowsShortcutIcon(String path) async {
     var frame = await codec.getNextFrame();
     image = frame.image;
     calloc.free(bits);
-  } catch (e, _) {
+  } catch (_, _) {
     image = null;
   } finally {
     DestroyIcon(infoPtr.ref.hIcon);

@@ -1,14 +1,10 @@
 import 'dart:collection';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:app_dirs/app_dirs.dart';
-import 'package:ffi/ffi.dart';
 import 'package:flud/main.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:fuzzy/fuzzy.dart';
-import 'package:win32/win32.dart';
 
 class ApplicationInfo {
   final String name;

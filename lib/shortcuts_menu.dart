@@ -213,23 +213,8 @@ List<ShortcutNode> _getNodeChildrenRecursive(List<dynamic> list, int level) {
 
     Widget? icon;
     var iconPath = node['iconPath'];
-    if (iconPath != null && iconPath is String) {
-      var file = File(iconPath);
-      if (file.existsSync()) {
-        if (file.path.endsWith('svg')) {
-          icon = SvgPicture.file(
-            file,
-            width: shortcutIconSize,
-            height: shortcutIconSize,
-          );
-        } else {
-          icon = Image.file(
-            file,
-            width: shortcutIconSize,
-            height: shortcutIconSize,
-          );
-        }
-      }
+    if (iconPath != null && iconPath is String && iconPath.isNotEmpty) {
+      icon = AppIcon(iconPath: iconPath, size: shortcutIconSize);
     }
 
     if (node['characterBind'] == null) {

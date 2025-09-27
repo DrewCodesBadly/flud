@@ -1,9 +1,145 @@
+import 'dart:collection';
 import 'dart:ffi';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:ffi/ffi.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+// Avoids confusing dart:ui's Image and Flutter's Image
+import 'package:flutter/material.dart'
+    show StatelessWidget, Widget, RawImage, Icons, Icon, BuildContext;
+import 'package:flutter_svg/svg.dart';
 import 'package:win32/win32.dart';
+
+enum AppIconType { svgImage, bitmapImage, unknownCachedImage, none }
+
+// Size of stored images. On the high end in case of high resolution displays.
+const int cachedImageSize = 128;
+
+// StatelessWidget that fetches an icon preloaded into AppIcons.
+class AppIcon extends StatelessWidget {
+  final String? iconPath;
+  final double size;
+  late final AppIconType iconType;
+
+  AppIcon({this.iconPath, required this.size, super.key}) {
+    if (iconPath == null) {
+      iconType = AppIconType.none;
+      return;
+    } else {
+      if (iconPath!.endsWith('svg')) {
+        iconType = AppIconType.svgImage;
+      } else {
+        iconType = AppIconType.unknownCachedImage;
+      }
+      AppIcons.addIconPathIfNotExists(iconPath!);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    switch (iconType) {
+      case AppIconType.bitmapImage:
+        var image = AppIcons.decodedImages[iconPath];
+        return image != null
+            ? RawImage(image: image, width: size, height: size)
+            : Icon(Icons.open_in_new, size: size);
+      case AppIconType.svgImage:
+        var path = AppIcons.svgImages[iconPath];
+        if (path != null) {
+          var file = File(path);
+          if (file.existsSync()) {
+            return SvgPicture.file(file, width: size, height: size);
+          }
+        }
+        return Icon(Icons.open_in_new, size: size);
+      case AppIconType.none:
+        return Icon(Icons.open_in_new, size: size);
+      case AppIconType.unknownCachedImage:
+        var svgPath = AppIcons.svgImages[iconPath];
+        if (svgPath != null) {
+          var file = File(svgPath);
+          if (file.existsSync()) {
+            return SvgPicture.file(file, width: size, height: size);
+          }
+        }
+        var image = AppIcons.decodedImages[iconPath];
+        return image != null
+            ? RawImage(image: image, width: size, height: size)
+            : Icon(Icons.open_in_new, size: size);
+    }
+  }
+}
+
+// Stores cached icons.
+class AppIcons {
+  // These live through the app's entire lifetime so they are never disposed.
+  static final HashMap<String, Image> decodedImages = HashMap();
+  static final HashMap<String, String> svgImages = HashMap();
+
+  static Future<void> addIconPathIfNotExists(String iconPath) async {
+    if (decodedImages.containsKey(iconPath) ||
+        svgImages.containsKey(iconPath)) {
+      return;
+    }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        // TODO: Handle this case.
+        throw UnimplementedError();
+      case TargetPlatform.fuchsia:
+        // TODO: Handle this case.
+        throw UnimplementedError();
+      case TargetPlatform.iOS:
+        // TODO: Handle this case.
+        throw UnimplementedError();
+      case TargetPlatform.linux:
+        var fullPath = linuxGetFullIconPath(iconPath);
+        if (fullPath == null) {
+          return;
+        }
+        if (fullPath.endsWith('svg')) {
+          svgImages[iconPath] = fullPath;
+        } else {
+          // Load the image stored in that file and create an Image from it.
+          // This is then stored for later use.
+          var image = await loadImageFromFile(fullPath);
+          if (image != null) {
+            decodedImages[iconPath] = image;
+          }
+        }
+      case TargetPlatform.macOS:
+        // TODO: Handle this case.
+        throw UnimplementedError();
+      case TargetPlatform.windows:
+        // Extract from shortcut
+        if (iconPath.endsWith('lnk')) {
+        } else {
+          // Try loading image from file
+          var image = await loadImageFromFile(iconPath);
+          if (image != null) {
+            decodedImages[iconPath] = image;
+          }
+        }
+    }
+  }
+}
+
+Future<Image?> loadImageFromFile(String fullPath) async {
+  try {
+    var descriptor = await ImageDescriptor.encoded(
+      await ImmutableBuffer.fromFilePath(fullPath),
+    );
+    var codec = await descriptor.instantiateCodec(
+      targetWidth: cachedImageSize,
+      targetHeight: cachedImageSize,
+    );
+    var frame = await codec.getNextFrame();
+    return frame.image;
+  } catch (_, _) {
+    return null;
+  }
+}
 
 // TODO: Refactor all of this
 // Adapted from the win32 task manager example
@@ -105,4 +241,48 @@ Future<Widget> getWindowsShortcutIcon(String? path, double size) async {
     calloc.free(bitmapInfoPtr);
   }
   return foundIcon ?? Icon(Icons.open_in_new, size: size);
+}
+
+String? linuxGetFullIconPath(String? iconPath) {
+  final home = Platform.environment['HOME']!;
+  bool foundFile = false;
+  File? imageFile;
+  if (iconPath != null && iconPath.isNotEmpty) {
+    imageFile = File(iconPath);
+    if (!imageFile.existsSync()) {
+      var dataDirs = Platform.environment["XDG_DATA_DIRS"]!
+          .split(':')
+          .map((s) => "$s/icons")
+          .toList(growable: true);
+      // Supposed to search this directory first but it's inconvenient and I don't care.
+      dataDirs.add('$home/.icons');
+      dataDirs.add('/usr/share/pixmaps/icons');
+      outer:
+      for (var dir in dataDirs) {
+        // Acceptable extensions to the path where the icon might be found. Not exhaustive (yet)
+        // SVG and XMP not supported
+        // TODO: support SVG and make search more exhaustive
+        var paths = <String>[
+          '$dir/hicolor/scalable/apps/$iconPath.svg',
+          '$dir/hicolor/64x64/apps/$iconPath.png',
+          '$dir/hicolor/32x32/apps/$iconPath.png',
+          dir,
+        ];
+        for (var path in paths) {
+          imageFile = File(path);
+          if (imageFile.existsSync()) {
+            foundFile = true;
+            break outer;
+          }
+        }
+      }
+    } else {
+      foundFile = true;
+    }
+  }
+  if (foundFile && imageFile != null) {
+    return imageFile.path;
+  } else {
+    return null;
+  }
 }

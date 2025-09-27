@@ -1,4 +1,5 @@
 import 'package:flud/central_panel.dart';
+import 'package:flud/icons.dart';
 import 'package:flud/searcher.dart';
 import 'package:flud/shortcuts_menu.dart';
 import 'package:flutter/material.dart';
@@ -311,9 +312,9 @@ class EditShortcutsDialogState extends State<EditShortcutsDialog> {
                   FilledButton(
                     onPressed: () {
                       currentlyEditing!.iconPath = iconPathController.text;
-                      currentlyEditing!.icon = getAppIconFromPath(
-                        iconPathController.text,
-                        shortcutIconSize,
+                      currentlyEditing!.icon = AppIcon(
+                        iconPath: iconPathController.text,
+                        size: shortcutIconSize,
                       );
                       currentlyEditing!.exec = cmdController.text.split(' ');
                       shortcutsAreDirty = true;

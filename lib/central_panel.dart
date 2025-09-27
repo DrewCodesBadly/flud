@@ -92,7 +92,6 @@ class CentralPanelData extends ChangeNotifier {
       case SearchState.searchForApps:
         if (foundApps.firstOrNull != null) {
           var cmd = foundApps.first.executeCmd;
-          print(cmd);
           runCommandWrapped(cmd.first, cmd.skip(1).toList(growable: false));
           success = true;
         }
@@ -256,7 +255,7 @@ class AppSearchResultsPanel extends StatelessWidget {
       var app = apps[index];
       return Row(
         children: [
-          getAppIcon(app.iconPath, 64.0),
+          AppIcon(iconPath: app.iconPath, size: 64.0),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,11 +280,13 @@ class AppSearchResultsPanel extends StatelessWidget {
                   },
                 );
                 if (result != null && result.isNotEmpty) {
-                  var fullIconPath = getAppIconPath(app.iconPath);
                   var node = ShortcutNode(
                     result.characters.last,
-                    iconPath: fullIconPath,
-                    icon: getAppIconFromPath(fullIconPath, 64.0),
+                    iconPath: app.iconPath,
+                    icon: AppIcon(
+                      iconPath: app.iconPath,
+                      size: shortcutIconSize,
+                    ),
                     exec: app.executeCmd,
                     level: result.length,
                   );
@@ -344,94 +345,31 @@ class FileSearchResultsPanel extends StatelessWidget {
   }
 }
 
-String? getAppIconPath(String? iconPath) {
-  switch (defaultTargetPlatform) {
-    case TargetPlatform.android:
-      // TODO: Handle this case.
-      return null;
-    case TargetPlatform.fuchsia:
-      // TODO: Handle this case.
-      return null;
-    case TargetPlatform.iOS:
-      // TODO: Handle this case.
-      return null;
-    case TargetPlatform.linux:
-      final home = Platform.environment['HOME']!;
-      bool foundFile = false;
-      File? imageFile;
-      if (iconPath != null && iconPath.isNotEmpty) {
-        imageFile = File(iconPath);
-        if (!imageFile.existsSync()) {
-          var dataDirs = Platform.environment["XDG_DATA_DIRS"]!
-              .split(':')
-              .map((s) => "$s/icons")
-              .toList(growable: true);
-          // Supposed to search this directory first but it's inconvenient and I don't care.
-          dataDirs.add('$home/.icons');
-          dataDirs.add('/usr/share/pixmaps/icons');
-          outer:
-          for (var dir in dataDirs) {
-            // Acceptable extensions to the path where the icon might be found. Not exhaustive (yet)
-            // SVG and XMP not supported
-            // TODO: support SVG and make search more exhaustive
-            var paths = <String>[
-              '$dir/hicolor/scalable/apps/$iconPath.svg',
-              '$dir/hicolor/64x64/apps/$iconPath.png',
-              '$dir/hicolor/32x32/apps/$iconPath.png',
-              dir,
-            ];
-            for (var path in paths) {
-              imageFile = File(path);
-              if (imageFile.existsSync()) {
-                foundFile = true;
-                break outer;
-              }
-            }
-          }
-        }
-      }
-      if (foundFile && imageFile != null) {
-        return imageFile.path;
-      } else {
-        return null;
-      }
-    case TargetPlatform.macOS:
-      // TODO: Handle this case.
-      return null;
-    case TargetPlatform.windows:
-      return iconPath;
-  }
-}
-
-Widget getAppIcon(String? iconPath, double size) {
-  return getAppIconFromPath(getAppIconPath(iconPath), size);
-}
-
-Widget getAppIconFromPath(String? fullPath, double size) {
-  switch (defaultTargetPlatform) {
-    case TargetPlatform.android:
-      // TODO: Handle this case.
-      throw UnimplementedError();
-    case TargetPlatform.fuchsia:
-      // TODO: Handle this case.
-      throw UnimplementedError();
-    case TargetPlatform.iOS:
-      // TODO: Handle this case.
-      throw UnimplementedError();
-    case TargetPlatform.linux:
-      if (fullPath != null) {
-        if (fullPath.endsWith('svg')) {
-          return SvgPicture.file(File(fullPath), width: size, height: size);
-        } else {
-          return Image.file(File(fullPath), width: size, height: size);
-        }
-      } else {
-        return Icon(Icons.open_in_new, size: size);
-      }
-    case TargetPlatform.macOS:
-      // TODO: Handle this case.
-      throw UnimplementedError();
-    case TargetPlatform.windows:
-      throw UnimplementedError();
-  }
-}
+// Widget getAppIconFromPath(String? fullPath, double size) {
+//   switch (defaultTargetPlatform) {
+//     case TargetPlatform.android:
+//       // TODO: Handle this case.
+//       throw UnimplementedError();
+//     case TargetPlatform.fuchsia:
+//       // TODO: Handle this case.
+//       throw UnimplementedError();
+//     case TargetPlatform.iOS:
+//       // TODO: Handle this case.
+//       throw UnimplementedError();
+//     case TargetPlatform.linux:
+//       if (fullPath != null) {
+//         if (fullPath.endsWith('svg')) {
+//           return SvgPicture.file(File(fullPath), width: size, height: size);
+//         } else {
+//           return Image.file(File(fullPath), width: size, height: size);
+//         }
+//       } else {
+//         return Icon(Icons.open_in_new, size: size);
+//       }
+//     case TargetPlatform.macOS:
+//       // TODO: Handle this case.
+//       throw UnimplementedError();
+//     case TargetPlatform.windows:
+//       throw UnimplementedError();
+//   }
+// }

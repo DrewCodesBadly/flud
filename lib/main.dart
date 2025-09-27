@@ -339,8 +339,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             CloseAppIntent: CallbackAction<CloseAppIntent>(
               onInvoke: (_) async {
                 await _fadeController.reverse();
-                SystemChannels.platform.invokeMethod('SystemNavigator.pop');
-                return null;
+                // SystemChannels.platform.invokeMethod('SystemNavigator.pop');
+                exit(0);
               },
             ),
           },

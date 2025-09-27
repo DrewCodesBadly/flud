@@ -114,6 +114,10 @@ class AppIcons {
       case TargetPlatform.windows:
         // Extract from shortcut
         if (iconPath.endsWith('lnk')) {
+          var image = await getWindowsShortcutIcon(iconPath);
+          if (image != null) {
+            decodedImages[iconPath] = image;
+          }
         } else {
           // Try loading image from file
           var image = await loadImageFromFile(iconPath);
@@ -143,25 +147,22 @@ Future<Image?> loadImageFromFile(String fullPath) async {
 
 // TODO: Refactor all of this
 // Adapted from the win32 task manager example
-Future<Widget> getWindowsShortcutIcon(String? path, double size) async {
-  Widget? foundIcon;
+Future<Image?> getWindowsShortcutIcon(String path) async {
   final infoPtr = calloc.allocate<SHFILEINFO>(sizeOf<SHFILEINFO>());
   final iconInfoPtr = calloc.allocate<ICONINFO>(sizeOf<ICONINFO>());
   final bitmapInfoPtr = calloc.allocate<BITMAPINFO>(sizeOf<BITMAPINFO>());
   final hdc = CreateCompatibleDC(NULL);
 
+  Image? image;
+
   // Resources that may be created and need to be freed.
   try {
-    if (path == null) {
-      throw Error();
-    }
-
     SHGetFileInfo(
       path.toNativeUtf16(),
       0, // needed? says its ignored if one isn't set anyway
       infoPtr,
       sizeOf<SHFILEINFO>(),
-      0 | SHGFI_ICON,
+      0 | SHGFI_ICON | SHGFI_LARGEICON,
     );
     if (infoPtr.ref.hIcon == NULL) {
       throw Error();
@@ -213,26 +214,43 @@ Future<Widget> getWindowsShortcutIcon(String? path, double size) async {
       throw Error();
     }
 
-    // foundIcon = Image.memory(
-    //   Uint8List.fromList(
-    //     bits.asTypedList(bitmapInfoPtr.ref.bmiHeader.biSizeImage),
-    //   ),
-    //   width: size,
-    //   height: size,
-    // );
-    var codec = await ImageDescriptor.raw(
-      await ImmutableBuffer.fromUint8List(
-        bits.asTypedList(bitmapInfoPtr.ref.bmiHeader.biSizeImage),
-      ),
-      width: bitmapInfoPtr.ref.bmiHeader.biWidth,
-      height: bitmapInfoPtr.ref.bmiHeader.biHeight,
-      pixelFormat: PixelFormat.rgba8888,
-    ).instantiateCodec(targetWidth: size.round(), targetHeight: size.round());
-    var image = null;
-    foundIcon = RawImage(image: image, width: size, height: size);
+    // For whatever reason the pixels are return correctly -
+    // but in the reverse of the order dart expects.
+    var originalList = bits.asTypedList(
+      bitmapInfoPtr.ref.bmiHeader.biSizeImage,
+    );
+    // var newList = <int>[];
+    // for (var i = 0; i < originalList.length; i += 4) {
+    //   var next = originalList[i];
+    //   next |= originalList[i + 1] << 8;
+    //   next |= originalList[i + 2] << 16;
+    //   next |= originalList[i + 3] << 24;
+    //   newList.add(next);
+    // }
+    var len = originalList.length;
+    var newList = List<int>.from(originalList);
+    for (var i = 0; i < len; i += 4) {
+      newList[i] = originalList[len - i - 4];
+      newList[i + 1] = originalList[len - i - 3];
+      newList[i + 2] = originalList[len - i - 2];
+      newList[i + 3] = originalList[len - i - 1];
+    }
+
+    var codec =
+        await ImageDescriptor.raw(
+          await ImmutableBuffer.fromUint8List(Uint8List.fromList(newList)),
+          width: bitmapInfoPtr.ref.bmiHeader.biWidth,
+          height: bitmapInfoPtr.ref.bmiHeader.biHeight,
+          pixelFormat: PixelFormat.bgra8888,
+        ).instantiateCodec(
+          targetWidth: cachedImageSize,
+          targetHeight: cachedImageSize,
+        );
+    var frame = await codec.getNextFrame();
+    image = frame.image;
     calloc.free(bits);
-  } catch (_, _) {
-    foundIcon = null;
+  } catch (e, _) {
+    image = null;
   } finally {
     DestroyIcon(infoPtr.ref.hIcon);
     DeleteDC(hdc);
@@ -240,7 +258,7 @@ Future<Widget> getWindowsShortcutIcon(String? path, double size) async {
     calloc.free(iconInfoPtr);
     calloc.free(bitmapInfoPtr);
   }
-  return foundIcon ?? Icon(Icons.open_in_new, size: size);
+  return image;
 }
 
 String? linuxGetFullIconPath(String? iconPath) {
@@ -261,7 +279,6 @@ String? linuxGetFullIconPath(String? iconPath) {
       for (var dir in dataDirs) {
         // Acceptable extensions to the path where the icon might be found. Not exhaustive (yet)
         // SVG and XMP not supported
-        // TODO: support SVG and make search more exhaustive
         var paths = <String>[
           '$dir/hicolor/scalable/apps/$iconPath.svg',
           '$dir/hicolor/64x64/apps/$iconPath.png',

@@ -109,7 +109,7 @@ class ApplicationListData {
         // Also, I have no idea how to get icons.
         final key = Registry.openPath(
           RegistryHive.currentUser,
-          path: 'Software\\RegisteredApplications',
+          path: 'Software\\RegisteredApplications\\PackagedApps',
         );
         for (var value in key.values) {
           if (value is StringValue) {
@@ -122,18 +122,11 @@ class ApplicationListData {
                   RegistryHive.currentUser,
                   path: nextPath,
                 );
-                final fullAppID = nextPath.substring(
-                  windowsAppPathStart.length,
-                  nextPath.indexOf('\\', windowsAppPathStart.length),
-                );
-                final packageID =
-                    fullAppID.substring(0, fullAppID.indexOf('_') + 1) +
-                    fullAppID.substring(fullAppID.lastIndexOf('_') + 1);
                 final name = nextKey.getStringValue('ApplicationName')!;
                 if (!names.contains(name)) {
                   apps[name] = ApplicationInfo(
                     name,
-                    ['explorer', 'shell:AppsFolder\\$packageID!App'],
+                    ['explorer', 'shell:AppsFolder\\${value.name}'],
                     null,
                     'From the Microsoft Store or Windows',
                   );

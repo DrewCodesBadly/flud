@@ -441,5 +441,12 @@ List<String> stripExecuteCmd(List<String> cmd) {
   //   }
   // }).toList();
   cmd.removeWhere((s) => s.startsWith('%'));
+  // Remove any characters at the end. This fixes an issue with file paths.
+  // I'm pretty sure this happened because of windows-native files with \r\n, and the \r makes
+  // it into the command, resulting in a file not found error.
+  cmd.last.trimRight();
+  if (cmd.last.endsWith('\r')) {
+    cmd.last = cmd.last.substring(0, cmd.last.length - 1);
+  }
   return cmd;
 }

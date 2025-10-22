@@ -36,6 +36,7 @@ class CentralPanel extends StatelessWidget {
                   case SearchState.searchForApps:
                     var cmd = data.foundApps[intent.index].executeCmd;
                     print('About to execute command: $cmd');
+                    print(cmd);
                     runCommandWrapped(
                       cmd.first,
                       cmd.skip(1).toList(growable: false),
